@@ -110,7 +110,6 @@ func (srv *TcpServer) Serve(l *net.TCPListener) error {
 		tempDelay = 0
 		tcpConn := srv.newTcpConn(conn, srv.callback, srv.protocol)
 		srv.bucket.Put(tcpConn.RemoteAddr(), tcpConn)
-		srv.callback.OnConnected(tcpConn)
 	}
 }
 

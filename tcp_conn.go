@@ -47,6 +47,7 @@ func (c *TcpConn) Serve() {
 			logger.Println("tcp conn(%v) Serve error, %v ", c.RemoteIP(), r)
 		}
 	}()
+	c.callback.OnConnected(c)
 	go c.readLoop()
 	go c.writeLoop()
 	go c.handleLoop()
@@ -70,6 +71,13 @@ func (c *TcpConn) readLoop() {
 			c.readChan <- p
 		}
 	}
+}
+
+func (c *TcpConn) ReadPacket() (Packet, error) {
+	if c.protocol == nil {
+		return nil, errors.New("no protocol impl")
+	}
+	return c.protocol.ReadPacket(c.conn)
 }
 
 func (c *TcpConn) writeLoop() {
