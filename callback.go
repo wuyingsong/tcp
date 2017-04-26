@@ -1,9 +1,9 @@
 package tcp
 
 type CallBack interface {
-	OnConnected(conn *TcpConn)
+	OnConnected(conn *TCPConn)
 
-	OnMessage(conn *TcpConn, p Packet)
+	OnMessage(conn *TCPConn, p Packet)
 
-	OnDisconnected(conn *TcpConn)
+	OnDisconnected(conn *TCPConn)
 }

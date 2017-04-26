@@ -3,7 +3,6 @@ package tcp
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"io"
 )
@@ -33,7 +32,7 @@ func (*DefaultProtocol) ReadPacketLimit(reader io.Reader, size uint32) (Packet, 
 
 	packetLength := binary.BigEndian.Uint32(head)
 	if size != 0 && packetLength > size {
-		return nil, errors.New(fmt.Sprintf("packet too large(%v > %v)", packetLength, size))
+		return nil, fmt.Errorf("packet too large(%v > %v)", packetLength, size)
 	}
 
 	buf := make([]byte, packetLength)

@@ -13,7 +13,7 @@ var (
 	ErrBufferFull  = errors.New("the async send buffer is full")
 )
 
-type TcpConn struct {
+type TCPConn struct {
 	callback CallBack
 	protocol Protocol
 
@@ -27,13 +27,13 @@ type TcpConn struct {
 	err       error
 }
 
-func NewTcpConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TcpConn {
-	c := &TcpConn{
+func NewTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
+	c := &TCPConn{
 		conn:      conn,
 		callback:  callback,
 		protocol:  protocol,
-		readChan:  make(chan Packet, READ_CHAN_SIZE),
-		writeChan: make(chan Packet, WRITE_CHAN_SIZE),
+		readChan:  make(chan Packet, readChanSize),
+		writeChan: make(chan Packet, writeChanSize),
 		exitChan:  make(chan struct{}),
 		exitFlag:  1,
 	}
@@ -41,7 +41,7 @@ func NewTcpConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TcpCon
 	return c
 }
 
-func (c *TcpConn) Serve() {
+func (c *TCPConn) Serve() {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Println("tcp conn(%v) Serve error, %v ", c.RemoteIP(), r)
@@ -53,7 +53,7 @@ func (c *TcpConn) Serve() {
 	go c.handleLoop()
 }
 
-func (c *TcpConn) readLoop() {
+func (c *TCPConn) readLoop() {
 	defer func() {
 		recover()
 		c.Close()
@@ -73,14 +73,14 @@ func (c *TcpConn) readLoop() {
 	}
 }
 
-func (c *TcpConn) ReadPacket() (Packet, error) {
+func (c *TCPConn) ReadPacket() (Packet, error) {
 	if c.protocol == nil {
 		return nil, errors.New("no protocol impl")
 	}
 	return c.protocol.ReadPacket(c.conn)
 }
 
-func (c *TcpConn) writeLoop() {
+func (c *TCPConn) writeLoop() {
 	defer func() {
 		recover()
 		c.Close()
@@ -101,7 +101,7 @@ func (c *TcpConn) writeLoop() {
 	}
 }
 
-func (c *TcpConn) handleLoop() {
+func (c *TCPConn) handleLoop() {
 	defer func() {
 		recover()
 		c.Close()
@@ -119,7 +119,7 @@ func (c *TcpConn) handleLoop() {
 	}
 }
 
-func (c *TcpConn) Send(p Packet) error {
+func (c *TCPConn) Send(p Packet) error {
 	if c.IsClosed() {
 		return ErrConnClosing
 	}
@@ -131,7 +131,7 @@ func (c *TcpConn) Send(p Packet) error {
 	}
 }
 
-func (c *TcpConn) Close() {
+func (c *TCPConn) Close() {
 	c.closeOnce.Do(func() {
 		c.callback.OnDisconnected(c)
 		atomic.StoreInt32(&c.exitFlag, 0)
@@ -142,26 +142,26 @@ func (c *TcpConn) Close() {
 	})
 }
 
-func (c *TcpConn) GetRawConn() *net.TCPConn {
+func (c *TCPConn) GetRawConn() *net.TCPConn {
 	return c.conn
 }
 
-func (c *TcpConn) IsClosed() bool {
+func (c *TCPConn) IsClosed() bool {
 	return atomic.LoadInt32(&c.exitFlag) == 0
 }
 
-func (c *TcpConn) LocalAddr() string {
+func (c *TCPConn) LocalAddr() string {
 	return c.conn.LocalAddr().String()
 }
 
-func (c *TcpConn) LocalIP() string {
+func (c *TCPConn) LocalIP() string {
 	return strings.Split(c.LocalAddr(), ":")[0]
 }
 
-func (c *TcpConn) RemoteAddr() string {
+func (c *TCPConn) RemoteAddr() string {
 	return c.conn.RemoteAddr().String()
 }
 
-func (c *TcpConn) RemoteIP() string {
+func (c *TCPConn) RemoteIP() string {
 	return strings.Split(c.RemoteAddr(), ":")[0]
 }

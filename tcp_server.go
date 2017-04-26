@@ -12,8 +12,8 @@ const (
 	//tcp conn max packet size
 	defaultMaxPacketSize = 1024 << 10 //1MB
 
-	READ_CHAN_SIZE  = 10
-	WRITE_CHAN_SIZE = 10
+	readChanSize  = 10
+	writeChanSize = 10
 )
 
 var (
@@ -24,7 +24,7 @@ func init() {
 	logger = log.New(os.Stdout, "", log.Lshortfile)
 }
 
-type TcpServer struct {
+type TCPServer struct {
 	//TCP address to listen on
 	tcpAddr string
 
@@ -41,22 +41,22 @@ type TcpServer struct {
 
 	maxPacketSize uint32        //single packet max bytes
 	deadLine      time.Duration //the tcp connection read and write timeout
-	bucket        *TcpConnBucket
+	bucket        *TCPConnBucket
 }
 
-func NewTcpServer(tcpAddr string, callback CallBack, protocol Protocol) *TcpServer {
-	return &TcpServer{
+func NewTCPServer(tcpAddr string, callback CallBack, protocol Protocol) *TCPServer {
+	return &TCPServer{
 		tcpAddr:  tcpAddr,
 		callback: callback,
 		protocol: protocol,
 
-		bucket:        newTcpConnBucket(),
+		bucket:        newTCPConnBucket(),
 		exitChan:      make(chan struct{}),
 		maxPacketSize: defaultMaxPacketSize,
 	}
 }
 
-func (srv *TcpServer) ListenAndServe() error {
+func (srv *TCPServer) ListenAndServe() error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", srv.tcpAddr)
 	if err != nil {
 		return err
@@ -68,7 +68,7 @@ func (srv *TcpServer) ListenAndServe() error {
 	return srv.Serve(ln)
 }
 
-func (srv *TcpServer) Serve(l *net.TCPListener) error {
+func (srv *TCPServer) Serve(l *net.TCPListener) error {
 	srv.listener = l
 	defer func() {
 		if r := recover(); r != nil {
@@ -78,7 +78,7 @@ func (srv *TcpServer) Serve(l *net.TCPListener) error {
 	}()
 	go func() {
 		for {
-			srv.removeClosedTcpConn()
+			srv.removeClosedTCPConn()
 			time.Sleep(time.Millisecond * 10)
 		}
 	}()
@@ -87,7 +87,7 @@ func (srv *TcpServer) Serve(l *net.TCPListener) error {
 	for {
 		select {
 		case <-srv.exitChan:
-			return errors.New("TpcServer Closed.")
+			return errors.New("TCPServer Closed")
 		default:
 		}
 		conn, err := srv.listener.AcceptTCP()
@@ -108,20 +108,20 @@ func (srv *TcpServer) Serve(l *net.TCPListener) error {
 			return err
 		}
 		tempDelay = 0
-		tcpConn := srv.newTcpConn(conn, srv.callback, srv.protocol)
+		tcpConn := srv.newTCPConn(conn, srv.callback, srv.protocol)
 		srv.bucket.Put(tcpConn.RemoteAddr(), tcpConn)
 	}
 }
 
-func (srv *TcpServer) newTcpConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TcpConn {
+func (srv *TCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
 	if callback == nil {
 		// if the handler is nil, use srv handler
 		callback = srv.callback
 	}
-	return NewTcpConn(conn, callback, protocol)
+	return NewTCPConn(conn, callback, protocol)
 }
 
-func (srv *TcpServer) Connect(ip string, callback CallBack, protocol Protocol) (*TcpConn, error) {
+func (srv *TCPServer) Connect(ip string, callback CallBack, protocol Protocol) (*TCPConn, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ip)
 	if err != nil {
 		return nil, err
@@ -131,12 +131,12 @@ func (srv *TcpServer) Connect(ip string, callback CallBack, protocol Protocol) (
 		return nil, err
 	}
 
-	tcpConn := srv.newTcpConn(conn, callback, protocol)
+	tcpConn := srv.newTCPConn(conn, callback, protocol)
 	return tcpConn, nil
 
 }
 
-func (srv *TcpServer) Close() {
+func (srv *TCPServer) Close() {
 	defer srv.listener.Close()
 	for _, c := range srv.bucket.GetAll() {
 		if !c.IsClosed() {
@@ -145,7 +145,7 @@ func (srv *TcpServer) Close() {
 	}
 }
 
-func (srv *TcpServer) removeClosedTcpConn() {
+func (srv *TCPServer) removeClosedTCPConn() {
 	for {
 		select {
 		case <-srv.exitChan:
@@ -164,14 +164,14 @@ func (srv *TcpServer) removeClosedTcpConn() {
 		}
 	}
 }
-func (srv *TcpServer) GetAllTcpConn() []*TcpConn {
-	conns := []*TcpConn{}
+func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
+	conns := []*TCPConn{}
 	for _, conn := range srv.bucket.GetAll() {
 		conns = append(conns, conn)
 	}
 	return conns
 }
 
-func (srv *TcpServer) GetTcpConn(key string) *TcpConn {
+func (srv *TCPServer) GetTCPConn(key string) *TCPConn {
 	return srv.bucket.Get(key)
 }

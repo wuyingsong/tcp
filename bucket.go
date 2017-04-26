@@ -4,25 +4,25 @@ import (
 	"sync"
 )
 
-type TcpConnBucket struct {
-	m  map[string]*TcpConn
+type TCPConnBucket struct {
+	m  map[string]*TCPConn
 	mu *sync.RWMutex
 }
 
-func newTcpConnBucket() *TcpConnBucket {
-	return &TcpConnBucket{
-		m:  make(map[string]*TcpConn),
+func newTCPConnBucket() *TCPConnBucket {
+	return &TCPConnBucket{
+		m:  make(map[string]*TCPConn),
 		mu: new(sync.RWMutex),
 	}
 }
 
-func (b *TcpConnBucket) Put(key string, c *TcpConn) {
+func (b *TCPConnBucket) Put(key string, c *TCPConn) {
 	b.mu.Lock()
 	b.m[key] = c
 	b.mu.Unlock()
 }
 
-func (b *TcpConnBucket) Get(key string) *TcpConn {
+func (b *TCPConnBucket) Get(key string) *TCPConn {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	if conn, ok := b.m[key]; ok {
@@ -31,15 +31,15 @@ func (b *TcpConnBucket) Get(key string) *TcpConn {
 	return nil
 }
 
-func (b *TcpConnBucket) Delete(key string) {
+func (b *TCPConnBucket) Delete(key string) {
 	b.mu.Lock()
 	delete(b.m, key)
 	b.mu.Unlock()
 }
-func (b *TcpConnBucket) GetAll() map[string]*TcpConn {
+func (b *TCPConnBucket) GetAll() map[string]*TCPConn {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	m := make(map[string]*TcpConn, len(b.m))
+	m := make(map[string]*TCPConn, len(b.m))
 	for k, v := range b.m {
 		m[k] = v
 	}
