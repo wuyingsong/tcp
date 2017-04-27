@@ -24,6 +24,7 @@ func init() {
 	logger = log.New(os.Stdout, "", log.Lshortfile)
 }
 
+//TCPServer 结构定义
 type TCPServer struct {
 	//TCP address to listen on
 	tcpAddr string
@@ -44,18 +45,20 @@ type TCPServer struct {
 	bucket        *TCPConnBucket
 }
 
+//NewTCPServer 返回一个TCPServer实例
 func NewTCPServer(tcpAddr string, callback CallBack, protocol Protocol) *TCPServer {
 	return &TCPServer{
 		tcpAddr:  tcpAddr,
 		callback: callback,
 		protocol: protocol,
 
-		bucket:        newTCPConnBucket(),
+		bucket:        NewTCPConnBucket(),
 		exitChan:      make(chan struct{}),
 		maxPacketSize: defaultMaxPacketSize,
 	}
 }
 
+//ListenAndServe 使用TCPServer的tcpAddr创建TCPListner并调用Server()方法开启监听
 func (srv *TCPServer) ListenAndServe() error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", srv.tcpAddr)
 	if err != nil {
@@ -68,6 +71,7 @@ func (srv *TCPServer) ListenAndServe() error {
 	return srv.Serve(ln)
 }
 
+//Serve 使用指定的TCPListener开启监听
 func (srv *TCPServer) Serve(l *net.TCPListener) error {
 	srv.listener = l
 	defer func() {
@@ -76,12 +80,12 @@ func (srv *TCPServer) Serve(l *net.TCPListener) error {
 		}
 		srv.listener.Close()
 	}()
-	go func() {
-		for {
-			srv.removeClosedTCPConn()
-			time.Sleep(time.Millisecond * 10)
-		}
-	}()
+	// go func() {
+	// 	for {
+	// 		srv.removeClosedTCPConn()
+	// 		time.Sleep(time.Millisecond * 10)
+	// 	}
+	// }()
 
 	var tempDelay time.Duration
 	for {
@@ -121,6 +125,7 @@ func (srv *TCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, protocol 
 	return NewTCPConn(conn, callback, protocol)
 }
 
+//Connect 使用指定的callback和protocol连接其他TCPServer，返回TCPConn
 func (srv *TCPServer) Connect(ip string, callback CallBack, protocol Protocol) (*TCPConn, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ip)
 	if err != nil {
@@ -136,6 +141,7 @@ func (srv *TCPServer) Connect(ip string, callback CallBack, protocol Protocol) (
 
 }
 
+//Close 首先关闭所有连接，然后关闭TCPServer
 func (srv *TCPServer) Close() {
 	defer srv.listener.Close()
 	for _, c := range srv.bucket.GetAll() {
@@ -145,25 +151,27 @@ func (srv *TCPServer) Close() {
 	}
 }
 
-func (srv *TCPServer) removeClosedTCPConn() {
-	for {
-		select {
-		case <-srv.exitChan:
-			return
-		default:
-			removeKey := make(map[string]struct{})
-			for key, conn := range srv.bucket.GetAll() {
-				if conn.IsClosed() {
-					removeKey[key] = struct{}{}
-				}
-			}
-			for key, _ := range removeKey {
-				srv.bucket.Delete(key)
-			}
-			time.Sleep(time.Millisecond * 10)
-		}
-	}
-}
+// func (srv *TCPServer) removeClosedTCPConn() {
+// 	for {
+// 		select {
+// 		case <-srv.exitChan:
+// 			return
+// 		default:
+// 			removeKey := make(map[string]struct{})
+// 			for key, conn := range srv.bucket.GetAll() {
+// 				if conn.IsClosed() {
+// 					removeKey[key] = struct{}{}
+// 				}
+// 			}
+// 			for key := range removeKey {
+// 				srv.bucket.Delete(key)
+// 			}
+// 			time.Sleep(time.Millisecond * 10)
+// 		}
+// 	}
+// }
+
+//GetAllTCPConn 返回所有客户端连接
 func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
 	conns := []*TCPConn{}
 	for _, conn := range srv.bucket.GetAll() {

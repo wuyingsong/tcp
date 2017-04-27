@@ -66,6 +66,7 @@ func (c *TCPConn) readLoop() {
 		default:
 			p, err := c.protocol.ReadPacket(c.conn)
 			if err != nil {
+				// c.callback.OnError(err, c)
 				return
 			}
 			c.readChan <- p
@@ -95,6 +96,7 @@ func (c *TCPConn) writeLoop() {
 				continue
 			}
 			if err := c.protocol.WritePacket(c.conn, p); err != nil {
+				// c.callback.OnError(err, c)
 				return
 			}
 		}
