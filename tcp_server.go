@@ -41,7 +41,7 @@ type TCPServer struct {
 	exitChan chan struct{}
 
 	maxPacketSize uint32        //single packet max bytes
-	deadLine      time.Duration //the tcp connection read and write timeout
+	readDeadline  time.Duration //conn read deadline
 	bucket        *TCPConnBucket
 }
 
@@ -80,12 +80,14 @@ func (srv *TCPServer) Serve(l *net.TCPListener) error {
 		}
 		srv.listener.Close()
 	}()
-	// go func() {
-	// 	for {
-	// 		srv.removeClosedTCPConn()
-	// 		time.Sleep(time.Millisecond * 10)
-	// 	}
-	// }()
+
+	//清理无效连接
+	go func() {
+		for {
+			srv.removeClosedTCPConn()
+			time.Sleep(time.Millisecond * 10)
+		}
+	}()
 
 	var tempDelay time.Duration
 	for {
@@ -122,7 +124,12 @@ func (srv *TCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, protocol 
 		// if the handler is nil, use srv handler
 		callback = srv.callback
 	}
-	return NewTCPConn(conn, callback, protocol)
+	c := NewTCPConn(conn, callback, protocol)
+	if srv.readDeadline > 0 {
+		log.Println(c.setReadDeadline(srv.readDeadline))
+	}
+	c.Serve()
+	return c
 }
 
 //Connect 使用指定的callback和protocol连接其他TCPServer，返回TCPConn
@@ -151,25 +158,22 @@ func (srv *TCPServer) Close() {
 	}
 }
 
-// func (srv *TCPServer) removeClosedTCPConn() {
-// 	for {
-// 		select {
-// 		case <-srv.exitChan:
-// 			return
-// 		default:
-// 			removeKey := make(map[string]struct{})
-// 			for key, conn := range srv.bucket.GetAll() {
-// 				if conn.IsClosed() {
-// 					removeKey[key] = struct{}{}
-// 				}
-// 			}
-// 			for key := range removeKey {
-// 				srv.bucket.Delete(key)
-// 			}
-// 			time.Sleep(time.Millisecond * 10)
-// 		}
-// 	}
-// }
+func (srv *TCPServer) removeClosedTCPConn() {
+	select {
+	case <-srv.exitChan:
+		return
+	default:
+		removeKey := make(map[string]struct{})
+		for key, conn := range srv.bucket.GetAll() {
+			if conn.IsClosed() {
+				removeKey[key] = struct{}{}
+			}
+		}
+		for key := range removeKey {
+			srv.bucket.Delete(key)
+		}
+	}
+}
 
 //GetAllTCPConn 返回所有客户端连接
 func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
@@ -182,4 +186,8 @@ func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
 
 func (srv *TCPServer) GetTCPConn(key string) *TCPConn {
 	return srv.bucket.Get(key)
+}
+
+func (srv *TCPServer) SetReadDeadline(t time.Duration) {
+	srv.readDeadline = t
 }

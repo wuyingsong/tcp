@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 var (
@@ -21,10 +22,11 @@ type TCPConn struct {
 	readChan  chan Packet
 	writeChan chan Packet
 
-	exitChan  chan struct{}
-	closeOnce sync.Once
-	exitFlag  int32
-	err       error
+	readDeadline time.Duration
+	exitChan     chan struct{}
+	closeOnce    sync.Once
+	exitFlag     int32
+	err          error
 }
 
 func NewTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
@@ -35,9 +37,8 @@ func NewTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPCon
 		readChan:  make(chan Packet, readChanSize),
 		writeChan: make(chan Packet, writeChanSize),
 		exitChan:  make(chan struct{}),
-		exitFlag:  1,
+		exitFlag:  0,
 	}
-	c.Serve()
 	return c
 }
 
@@ -47,6 +48,7 @@ func (c *TCPConn) Serve() {
 			logger.Println("tcp conn(%v) Serve error, %v ", c.RemoteIP(), r)
 		}
 	}()
+	atomic.StoreInt32(&c.exitFlag, 1)
 	c.callback.OnConnected(c)
 	go c.readLoop()
 	go c.writeLoop()
@@ -64,9 +66,11 @@ func (c *TCPConn) readLoop() {
 		case <-c.exitChan:
 			return
 		default:
+			if c.readDeadline > 0 {
+				c.conn.SetReadDeadline(time.Now().Add(c.readDeadline))
+			}
 			p, err := c.protocol.ReadPacket(c.conn)
 			if err != nil {
-				// c.callback.OnError(err, c)
 				return
 			}
 			c.readChan <- p
@@ -166,4 +170,12 @@ func (c *TCPConn) RemoteAddr() string {
 
 func (c *TCPConn) RemoteIP() string {
 	return strings.Split(c.RemoteAddr(), ":")[0]
+}
+
+func (c *TCPConn) setReadDeadline(t time.Duration) error {
+	if !c.IsClosed() {
+		return errors.New("conn is running")
+	}
+	c.readDeadline = t
+	return nil
 }
