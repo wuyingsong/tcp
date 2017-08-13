@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"awesomeProject/tcp"
+	"log"
 )
 
 type TcpCallback struct {
@@ -18,7 +19,16 @@ func (tcpCallbak *TcpCallback)OnDisconnected(conn *tcp.TCPConn) {
 }
 
 func (tcpCallbak *TcpCallback)OnMessage(conn *tcp.TCPConn, p tcp.Packet){
-	fmt.Println("get msg ", string(p.Bytes()))
+	getBytes := p.Bytes()
+
+	fmt.Println("get msg ", string(getBytes))
+
+	dataLen := len(getBytes)
+	packet := tcp.NewDefaultPacket(tcp.PacketType(dataLen), getBytes)
+	err := conn.Send(packet)
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main()  {
