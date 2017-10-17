@@ -24,8 +24,8 @@ func init() {
 	logger = log.New(os.Stdout, "", log.Lshortfile)
 }
 
-//TCPServer 结构定义
-type TCPServer struct {
+//AsyncTCPServer 结构定义
+type AsyncTCPServer struct {
 	//TCP address to listen on
 	tcpAddr string
 
@@ -40,26 +40,24 @@ type TCPServer struct {
 	//if srv is shutdown, close the channel used to inform all session to exit.
 	exitChan chan struct{}
 
-	maxPacketSize uint32        //single packet max bytes
-	readDeadline  time.Duration //conn read deadline
-	bucket        *TCPConnBucket
+	readDeadline, writeDeadline time.Duration
+	bucket                      *TCPConnBucket
 }
 
-//NewTCPServer 返回一个TCPServer实例
-func NewTCPServer(tcpAddr string, callback CallBack, protocol Protocol) *TCPServer {
-	return &TCPServer{
+//NewAsyncTCPServer 返回一个AsyncTCPServer实例
+func NewAsyncTCPServer(tcpAddr string, callback CallBack, protocol Protocol) *AsyncTCPServer {
+	return &AsyncTCPServer{
 		tcpAddr:  tcpAddr,
 		callback: callback,
 		protocol: protocol,
 
-		bucket:        NewTCPConnBucket(),
-		exitChan:      make(chan struct{}),
-		maxPacketSize: defaultMaxPacketSize,
+		bucket:   NewTCPConnBucket(),
+		exitChan: make(chan struct{}),
 	}
 }
 
-//ListenAndServe 使用TCPServer的tcpAddr创建TCPListner并调用Server()方法开启监听
-func (srv *TCPServer) ListenAndServe() error {
+//ListenAndServe 使用AsyncTCPServer的tcpAddr创建TCPListner并调用Server()方法开启监听
+func (srv *AsyncTCPServer) ListenAndServe() error {
 	tcpAddr, err := net.ResolveTCPAddr("tcp4", srv.tcpAddr)
 	if err != nil {
 		return err
@@ -72,7 +70,7 @@ func (srv *TCPServer) ListenAndServe() error {
 }
 
 //Serve 使用指定的TCPListener开启监听
-func (srv *TCPServer) Serve(l *net.TCPListener) error {
+func (srv *AsyncTCPServer) Serve(l *net.TCPListener) error {
 	srv.listener = l
 	defer func() {
 		if r := recover(); r != nil {
@@ -115,25 +113,24 @@ func (srv *TCPServer) Serve(l *net.TCPListener) error {
 		}
 		tempDelay = 0
 		tcpConn := srv.newTCPConn(conn, srv.callback, srv.protocol)
-		srv.bucket.Put(tcpConn.RemoteAddr(), tcpConn)
+		tcpConn.setReadDeadline(srv.readDeadline)
+		tcpConn.setWriteDeadline(srv.writeDeadline)
+		srv.bucket.Put(tcpConn.GetRemoteAddr().String(), tcpConn)
 	}
 }
 
-func (srv *TCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
+func (srv *AsyncTCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
 	if callback == nil {
 		// if the handler is nil, use srv handler
 		callback = srv.callback
 	}
 	c := NewTCPConn(conn, callback, protocol)
-	if srv.readDeadline > 0 {
-		log.Println(c.setReadDeadline(srv.readDeadline))
-	}
 	c.Serve()
 	return c
 }
 
 //Connect 使用指定的callback和protocol连接其他TCPServer，返回TCPConn
-func (srv *TCPServer) Connect(ip string, callback CallBack, protocol Protocol) (*TCPConn, error) {
+func (srv *AsyncTCPServer) Connect(ip string, callback CallBack, protocol Protocol) (*TCPConn, error) {
 	tcpAddr, err := net.ResolveTCPAddr("tcp", ip)
 	if err != nil {
 		return nil, err
@@ -149,7 +146,7 @@ func (srv *TCPServer) Connect(ip string, callback CallBack, protocol Protocol) (
 }
 
 //Close 首先关闭所有连接，然后关闭TCPServer
-func (srv *TCPServer) Close() {
+func (srv *AsyncTCPServer) Close() {
 	defer srv.listener.Close()
 	for _, c := range srv.bucket.GetAll() {
 		if !c.IsClosed() {
@@ -158,7 +155,7 @@ func (srv *TCPServer) Close() {
 	}
 }
 
-func (srv *TCPServer) removeClosedTCPConn() {
+func (srv *AsyncTCPServer) removeClosedTCPConn() {
 	select {
 	case <-srv.exitChan:
 		return
@@ -175,8 +172,7 @@ func (srv *TCPServer) removeClosedTCPConn() {
 	}
 }
 
-//GetAllTCPConn 返回所有客户端连接
-func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
+func (srv *AsyncTCPServer) GetAllTCPConn() []*TCPConn {
 	conns := []*TCPConn{}
 	for _, conn := range srv.bucket.GetAll() {
 		conns = append(conns, conn)
@@ -184,10 +180,14 @@ func (srv *TCPServer) GetAllTCPConn() []*TCPConn {
 	return conns
 }
 
-func (srv *TCPServer) GetTCPConn(key string) *TCPConn {
+func (srv *AsyncTCPServer) GetTCPConn(key string) *TCPConn {
 	return srv.bucket.Get(key)
 }
 
-func (srv *TCPServer) SetReadDeadline(t time.Duration) {
+func (srv *AsyncTCPServer) SetReadDeadline(t time.Duration) {
 	srv.readDeadline = t
+}
+
+func (srv *AsyncTCPServer) SetWriteDeadline(t time.Duration) {
+	srv.writeDeadline = t
 }

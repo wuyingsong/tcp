@@ -9,5 +9,5 @@ type CallBack interface {
 	//链接断开回调
 	OnDisconnected(conn *TCPConn)
 	//错误回调
-	// OnError(err error, conn *TCPConn)
+	OnError(err error)
 }
