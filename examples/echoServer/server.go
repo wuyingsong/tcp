@@ -12,4 +12,5 @@ func main() {
 	srv.SetReadDeadline(time.Second * 10)
 	log.Println("start listen...")
 	log.Println(srv.ListenAndServe())
+	select {}
 }

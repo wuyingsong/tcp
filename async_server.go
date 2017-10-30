@@ -66,7 +66,8 @@ func (srv *AsyncTCPServer) ListenAndServe() error {
 	if err != nil {
 		return err
 	}
-	return srv.Serve(ln)
+	go srv.Serve(ln)
+	return nil
 }
 
 //Serve 使用指定的TCPListener开启监听
@@ -124,6 +125,11 @@ func (srv *AsyncTCPServer) newTCPConn(conn *net.TCPConn, callback CallBack, prot
 		// if the handler is nil, use srv handler
 		callback = srv.callback
 	}
+
+	if protocol == nil {
+		protocol = srv.protocol
+	}
+
 	c := NewTCPConn(conn, callback, protocol)
 	c.Serve()
 	return c
