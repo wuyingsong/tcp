@@ -12,8 +12,8 @@ const (
 	//tcp conn max packet size
 	defaultMaxPacketSize = 1024 << 10 //1MB
 
-	readChanSize  = 10
-	writeChanSize = 10
+	readChanSize  = 100
+	writeChanSize = 100
 )
 
 var (
