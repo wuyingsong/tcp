@@ -2,7 +2,6 @@ package tcp
 
 import (
 	"sync"
-	"time"
 )
 
 //TCPConnBucket 用来存放和管理TCPConn连接
@@ -16,12 +15,14 @@ func NewTCPConnBucket() *TCPConnBucket {
 		m:  make(map[string]*TCPConn),
 		mu: new(sync.RWMutex),
 	}
-	tcb.removeClosedTCPConnLoop()
 	return tcb
 }
 
 func (b *TCPConnBucket) Put(id string, c *TCPConn) {
 	b.mu.Lock()
+	if conn, ok := b.m[id]; ok {
+		conn.Close()
+	}
 	b.m[id] = c
 	b.mu.Unlock()
 }
@@ -50,17 +51,14 @@ func (b *TCPConnBucket) GetAll() map[string]*TCPConn {
 	return m
 }
 
-func (b *TCPConnBucket) removeClosedTCPConnLoop() {
-	go func() {
-		removeKey := make(map[string]struct{})
-		for key, conn := range b.GetAll() {
-			if conn.IsClosed() {
-				removeKey[key] = struct{}{}
-			}
+func (b *TCPConnBucket) removeClosedTCPConn() {
+	removeKey := make(map[string]struct{})
+	for key, conn := range b.GetAll() {
+		if conn.IsClosed() {
+			removeKey[key] = struct{}{}
 		}
-		for key := range removeKey {
-			b.Delete(key)
-		}
-		time.Sleep(time.Millisecond * 100)
-	}()
+	}
+	for key := range removeKey {
+		b.Delete(key)
+	}
 }

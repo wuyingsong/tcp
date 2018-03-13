@@ -166,15 +166,7 @@ func (srv *AsyncTCPServer) removeClosedTCPConn() {
 	case <-srv.exitChan:
 		return
 	default:
-		removeKey := make(map[string]struct{})
-		for key, conn := range srv.bucket.GetAll() {
-			if conn.IsClosed() {
-				removeKey[key] = struct{}{}
-			}
-		}
-		for key := range removeKey {
-			srv.bucket.Delete(key)
-		}
+		srv.bucket.removeClosedTCPConn()
 	}
 }
 
