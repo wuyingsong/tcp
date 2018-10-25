@@ -30,6 +30,7 @@ type TCPConn struct {
 	exitChan  chan struct{}
 	closeOnce sync.Once
 	exitFlag  int32
+	extraData map[string]interface{}
 }
 
 func NewTCPConn(conn *net.TCPConn, callback CallBack, protocol Protocol) *TCPConn {
@@ -188,4 +189,18 @@ func (c *TCPConn) setReadDeadline(t time.Duration) {
 
 func (c *TCPConn) setWriteDeadline(t time.Duration) {
 	c.writeDeadline = t
+}
+
+func (c *TCPConn) SetExtraData(key string, data interface{}) {
+	if c.extraData == nil {
+		c.extraData = make(map[string]interface{})
+	}
+	c.extraData[key] = data
+}
+
+func (c *TCPConn) GetExtraData(key string) interface{} {
+	if data, ok := c.extraData[key]; ok {
+		return data
+	}
+	return nil
 }
