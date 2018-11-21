@@ -145,6 +145,18 @@ func (c *TCPConn) AsyncWritePacket(p Packet) error {
 	}
 }
 
+func (c *TCPConn) AsyncWritePacketWithTimeout(p Packet, sec int) error {
+	if c.IsClosed() {
+		return ErrConnClosing
+	}
+	select {
+	case c.writeChan <- p:
+		return nil
+	case <-time.After(time.Second * time.Duration(sec)):
+		return ErrBufferFull
+	}
+}
+
 func (c *TCPConn) Close() {
 	c.closeOnce.Do(func() {
 		atomic.StoreInt32(&c.exitFlag, 0)
