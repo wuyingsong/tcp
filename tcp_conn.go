@@ -12,8 +12,9 @@ import (
 )
 
 var (
-	ErrConnClosing = errors.New("use of closed network connection")
-	ErrBufferFull  = errors.New("the async send buffer is full")
+	ErrConnClosing  = errors.New("use of closed network connection")
+	ErrBufferFull   = errors.New("the async send buffer is full")
+	ErrWriteTimeout = errors.New("async write packet timeout")
 )
 
 type TCPConn struct {
@@ -153,7 +154,7 @@ func (c *TCPConn) AsyncWritePacketWithTimeout(p Packet, sec int) error {
 	case c.writeChan <- p:
 		return nil
 	case <-time.After(time.Second * time.Duration(sec)):
-		return ErrBufferFull
+		return ErrWriteTimeout
 	}
 }
 
